@@ -238,6 +238,102 @@ else {
         {
             if (get_user_class() >= 1) {
                 stdhead($lang_viewrequests['add_request']);
+
+
+                /******  增加：不同等级，求种增加不同的时间间隔 start  ******/
+
+                /**
+                 * 将秒数转换为天时分秒格式，并在超过24小时时增加天数
+                 *
+                 * @param int $seconds 时间差，单位为秒
+                 * @return string 格式化后的时间差字符串
+                 */
+                function formatTime($seconds) {
+                    $days = floor($seconds / 86400); // 计算天数
+                    $hours = floor(($seconds - $days * 86400) / 3600); // 计算小时数
+                    $minutes = floor(($seconds - $days * 86400 - $hours * 3600) / 60); // 计算分钟数
+                    $seconds = $seconds - $days * 86400 - $hours * 3600 - $minutes * 60; // 计算剩余的秒数
+                    $result = ''; // 初始化结果字符串
+                    if ($days > 0) {
+                        $result .= sprintf('%d天', $days); // 添加天数到结果字符串中
+                    }
+                    if ($hours > 0) {
+                        $result .= sprintf('%d小时', $hours); // 添加小时数到结果字符串中
+                    }
+                    if ($minutes > 0) {
+                        $result .= sprintf('%d分', $minutes); // 添加分钟数到结果字符串中
+                    }
+                    if ($seconds > 0 || empty($result)) {
+                        $result .= sprintf('%d秒', $seconds); // 添加剩余的秒数到结果字符串中
+                    }
+                    return $result; // 返回格式化后的时间差字符串
+                }
+
+                // 当前是否可以求种
+                $can_request = false;
+
+                /*-------  配置 start  -------*/
+                // 当前可随便求种等级
+                $LEVEL = UC_VIP; // 10
+                // var_dump("无求种等待最小等级: vip"); echo '<br />';
+                // 最小求种时间间隔，单位秒
+                $EACH_REQUEST_INTERVAL = 60 * 60 * 24;
+                // var_dump("最小求种间隔: ".formatTime($EACH_REQUEST_INTERVAL)); echo '<br />';
+                /******  配置 end  ******/
+
+                // 给用户等级赋权
+                $weight = $LEVEL - get_user_class();
+                // 当前用的等级每个求种的时间间隔是多少
+                $current_user_request_interval = $weight > 0 ? $EACH_REQUEST_INTERVAL * $weight : 0;
+                $format_current_user_request_interval = formatTime($current_user_request_interval);
+                // var_dump("当前用户等级求种间隔: ".formatTime($current_user_request_interval)); echo '<br />';
+
+                // 距离最近一次求种过去多少时间
+                $format_time_ago = "";
+                // 距离下次可求种剩余时间
+                $format_next_time_need = "";
+
+                // 只从数据库查找我提交的求种列表
+                $limit_my_requst = "1 and userid=" . $CURUSER["id"];
+                $rows = sql_query("SELECT requests.* ,(SELECT count(DISTINCT torrentid) FROM resreq  where reqid=requests.id ) as Totalreq FROM requests WHERE " . $limit_my_requst . " ORDER BY $limitorder id DESC $limit2") or sqlerr(__FILE__, __LINE__);
+
+                // 如果查找结果为空，代表没求过种，直接可用
+                if (mysql_num_rows($rows) == 0) {
+                    $can_request = true;
+                } else {
+                    // 获取最后一次求种数据
+                    $row = mysql_fetch_array($rows);
+                    // 最后一次求种时间
+                    $last_request_added_timestamp = strtotime($row['added']);
+                    // 格式化最后一次求种已过多少时间，用于显示
+                    $format_time_ago = gettime($row['added'], true, false);
+                    // 计算距离上次已过时间的时间戳
+                    $time_ago_timestamp = TIMENOW - $last_request_added_timestamp;
+                    // 计算下一次求种剩余时间
+                    $next_time_need = $current_user_request_interval - $time_ago_timestamp;
+                    // 格式化下一次求种剩余时间，用于显示
+                    $format_next_time_need = formatTime($next_time_need);
+
+                    // 距离上一次求种时间【大于】当前等级求种间隔时间，则可以求种
+                    $can_request = $time_ago_timestamp - $current_user_request_interval > 0;
+                }
+
+                if (!$can_request) {
+                    $html = <<<HTML
+                        <div style="width: 600px; ">
+                            <h3>当前还不能发布新的求种</h3>
+                            <h4>当前用户等级求种间隔：$format_current_user_request_interval</h3>
+                            <h4>距离上次求种已过去：$format_time_ago</h3>
+                            <h4>距离下次可求种还剩余：$format_next_time_need</h3>
+                        </div>
+                    HTML;
+                    print($html);
+                    return;
+                }
+
+                /******  增加：不同等级，求种增加不同的时间间隔 end  ******/
+
+
                 print(
                 "<form id=edit method=post name=edit action=viewrequests.php >\n<input type=hidden name=action  value=takeadded >\n");
                 print("<table width=100% cellspacing=0 cellpadding=3><tr><td class=colhead align=center colspan=2>{$lang_viewrequests['add_request']}</td></tr>\n");
