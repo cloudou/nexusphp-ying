@@ -207,7 +207,11 @@ JS;
 
         // ------------- start claim block ------------------//
         $claimTorrentTTL = \App\Models\Claim::getConfigTorrentTTL();
-        if (\App\Models\Claim::getConfigIsEnabled() && \Carbon\Carbon::parse($row['added'])->addDays($claimTorrentTTL)->lte(\Carbon\Carbon::now())) {
+        if (
+            \App\Models\Claim::getConfigIsEnabled()
+            && \Carbon\Carbon::parse($row['added'])->addDays($claimTorrentTTL)->lte(\Carbon\Carbon::now())
+            && get_user_class() >= UC_VIP // 只有 vip 等级以上才能认领
+        ) {
             $baseClaimQuery = \App\Models\Claim::query()->where('torrent_id', $id);
             $claimCounts = (clone $baseClaimQuery)->count();
             $isClaimed = (clone $baseClaimQuery)->where('uid', $CURUSER['id'])->exists();

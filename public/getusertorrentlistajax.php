@@ -238,6 +238,7 @@ function maketable($res, $mode = 'seeding')
 		    $showActionClaim
             && \App\Models\Claim::getConfigIsEnabled()
             && \Carbon\Carbon::parse($arr['added'])->addDays($claimTorrentTTL)->lte(\Carbon\Carbon::now())
+            && get_user_class() >= UC_VIP // 只有 vip 等级以上才能认领
         ) {
             $claim = $claimData->get($arr['torrent']);
 		    if ($CURUSER['id'] == $arr['userid']) {
