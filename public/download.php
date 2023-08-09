@@ -142,6 +142,10 @@ if (strlen($CURUSER['passkey']) != 32) {
 $trackerReportAuthKey = $torrentRep->getTrackerReportAuthKey($id, $CURUSER['id'], true);
 $dict = \Rhilip\Bencode\Bencode::load($fn);
 $dict['announce'] = $ssl_torrent . $base_announce_url . "?passkey=" . $CURUSER['passkey'];
+
+// 种子添加注释：种子的详情页连接
+$dict['comment'] = getSchemeAndHttpHost() . "/details.php?id=$id";
+
 do_log(sprintf("[ANNOUNCE_URL], user: %s, torrent: %s, url: %s", $CURUSER['id'] ?? '', $id, $dict['announce']));
 /**
  * does not support multi-tracker
