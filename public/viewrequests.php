@@ -73,6 +73,27 @@ else {
                 $rows = sql_query("SELECT requests.* ,(SELECT count(DISTINCT torrentid) FROM resreq  where reqid=requests.id ) as Totalreq FROM requests WHERE " . $limit . " ORDER BY $limitorder id DESC $limit2") or sqlerr(__FILE__, __LINE__);
                 print("<h1 align=center>{$lang_viewrequests['page_title']}</h1>");
                 print("<br><b><a href='viewrequests.php?action=new'>{$lang_viewrequests['add_request']}</a> | <a href='viewrequests.php?finished=all'>{$lang_viewrequests['view_request_all']}</a> | <a href='viewrequests.php?finished=yes'>{$lang_viewrequests['view_request_resolved']}</a> | <a href='viewrequests.php?finished=no'>{$lang_viewrequests['view_request_unresolved']}</a> | <a href='viewrequests.php?finished=ing'>{$lang_viewrequests['view_request_resolving']}</a> | <a href='viewrequests.php?finished=my' " . get_requestcount() . ">{$lang_viewrequests['view_request_my']}</a></b><p>\n");
+
+                /******* 求种使用说明 start ******/
+                print("<h3 align=center style=\"color: red; text-align: left; margin: 0 auto; width: 800px; line-height: 1.6;\">
+                    很高兴在这里见到你，感谢你对官种的信任与支持，请在发布求种时遵循下列规定：<br>
+                    1. 单次求种仅接受单个词条，不接受一贴多求，不接受缺少必须信息的求种。<br>
+                    2. 由于人员和技术有限，求种无法全部满足，官组会尽力满足。<br>
+                    3. 不合规求种，将被关闭。<br>
+                    4. 求种格式如下：<br>
+                      &nbsp;&nbsp;&nbsp;&nbsp;(1)标题要求：<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;【小组名】(必填)+片名(必填)+其他你认为必要的标题信息(不做要求)，例如 【YingWEB】星爱缘 第一季<br>
+                      &nbsp;&nbsp;&nbsp;&nbsp;(2)描述要求：<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;中文名(必填)：<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;英文名(仅中文资源可省略)：<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;资源链接(WEB资源必填)：<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;豆瓣/imdb/tmdb(至少一个)：<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;质量(分辨率等，无要求则1080p)：<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;其他必要的信息(不做要求)：<br>
+                    5. 如果你不是来求种的，那一定是打黑工的吧，别看了，快去下面认领你的任务！<br><br><br>
+                </h3>");
+                /******* 求种使用说明 end ******/
+
                 print("<table width=98% border=1 cellspacing=0 cellpadding=5 style=border-collapse:collapse >\n");
 
                 if (mysql_num_rows($rows) == 0) {
