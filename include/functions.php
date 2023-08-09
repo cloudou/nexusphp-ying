@@ -2335,7 +2335,98 @@ function menu ($selected = "home") {
             print ("<li" . ($selected == "forums" ? " class=\"selected\"" : "") . "><a href=\"forums.php\">".$lang_functions['text_forums']."</a></li>");
         else
             print ("<li" . ($selected == "forums" ? " class=\"selected\"" : "") . "><a href=\"" . $extforumurl."\" target=\"_blank\">".$lang_functions['text_forums']."</a></li>");
-        print ("<li" . ($selected == "torrents" ? " class=\"selected\"" : "") . "><a href=\"torrents.php\" rel='sub-menu'>".($normalSectionName[$lang] ?? $lang_functions['text_torrents'])."</a></li>");
+
+
+        /**************** 影视区下拉菜单 start ***************/
+        $HOVER_SUBMENU = <<<HTML
+			<div class="hover-submenu" style="display: none;">
+			    <div class="hover-submenu-item">
+					<a href="torrents.php">
+					    全&nbsp;&nbsp;部
+					</a>
+				</div>
+				<div class="hover-submenu-item">
+					<a href="torrents.php?cat=401">
+						电&nbsp;&nbsp;影
+					</a>
+				</div>
+				<div class="hover-submenu-item">
+					<a href="torrents.php?cat=402">
+						电视剧
+					</a>
+				</div>
+				<div class="hover-submenu-item">
+					<a href="torrents.php?cat=403">
+						综&nbsp;&nbsp;艺
+					</a>
+				</div>
+				<div class="hover-submenu-item">
+					<a href="torrents.php?cat=404">
+						纪录片
+					</a>
+				</div>
+				<div class="hover-submenu-item">
+					<a href="torrents.php?cat=405">
+						动&nbsp;&nbsp;漫
+					</a>
+				</div>
+				<div class="hover-submenu-item">
+					<a href="torrents.php?cat=406">
+						M&nbsp;&nbsp;V
+					</a>
+				</div>
+				<div class="hover-submenu-item">
+					<a href="torrents.php?cat=407">
+						体&nbsp;&nbsp;育
+					</a>
+				</div>
+			</div>
+		HTML;
+
+        $HOVER_SUBMENU_CSS = <<<CSS
+			.has-submenu:hover .hover-submenu {
+				display: block !important;
+			}
+
+			.hover-submenu {
+				border: 1px solid black;
+				border-bottom: 0;
+				z-index: 2000;
+				left: 0px;
+				top: 27px;
+				display: none !important;
+				width: 57px;
+				position: absolute;
+			}
+
+			.hover-submenu-item {
+				border-bottom: 1px solid black;
+			}
+
+			.hover-submenu-item:hover a {
+				background-color: #ffa531 !important;
+				color: white !important;
+			}
+
+			.hover-submenu-item a {
+				font-weight: normal;
+				width: 100%;
+				box-sizing: border-box;
+				display: block;
+				background-color: lightyellow !important;
+				background-image: none !important;
+				border: 0;
+			}
+		CSS;
+
+        \Nexus\Nexus::css($HOVER_SUBMENU_CSS, 'footer', false);
+
+        print ("<li" . ($selected == "torrents" ? " class=\"selected has-submenu\"" : " class=\"has-submenu\"") . " style=\"position: relative; display: inline-block\"><a href=\"torrents.php\" rel='sub-menu'>".($normalSectionName[$lang] ?? $lang_functions['text_torrents'])."</a>".$HOVER_SUBMENU."</li>");
+
+        /**************** 影视区下拉菜单 end ***************/
+
+
+//        print ("<li" . ($selected == "torrents" ? " class=\"selected\"" : "") . "><a href=\"torrents.php\" rel='sub-menu'>".($normalSectionName[$lang] ?? $lang_functions['text_torrents'])."</a></li>");
         if ($enablespecial == 'yes' && user_can('view_special_torrent'))
             print ("<li" . ($selected == "special" ? " class=\"selected\"" : "") . "><a href=\"special.php\">".($specialSectionName[$lang] ?? $lang_functions['text_special'])."</a></li>");
         if ($enableoffer == 'yes')
