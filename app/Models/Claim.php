@@ -46,6 +46,13 @@ class Claim extends NexusModel
         }
     }
 
+    public function getIsSeedingAttribute()
+    {
+        return $this->peers()
+            ->where('seeder', 'yes')
+            ->exists();
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class, 'uid');
@@ -59,6 +66,11 @@ class Claim extends NexusModel
     public function snatch()
     {
         return $this->belongsTo(Snatch::class, 'snatched_id');
+    }
+
+    public function peers()
+    {
+        return $this->hasMany(Peer::class, 'torrent');
     }
 
     public static function getConfigIsEnabled(): bool

@@ -6,6 +6,7 @@ $torrentId = $uid = 0;
 $actionTh = $actionTd = '';
 
 $seedtime_order = ''; // 增加按本月做种时长排序
+$unreached = ''; // 本月未达标
 
 if (!empty($_GET['torrent_id'])) {
     $torrentId = $_GET['torrent_id'];
@@ -32,6 +33,11 @@ if (!empty($_GET['torrent_id'])) {
         stderr("Error", "Invalid seedtime_order: $seedtime_order");
     }
 
+    $unreached = $_GET['unreached'];
+    if ($unreached && $unreached != '1') {
+        stderr("Error", "Invalid not_reached: $unreached");
+    }
+
     stdhead(nexus_trans('claim.title_for_user'));
     $query = \App\Models\Claim::query()->where('uid', $uid);
     $pagerParam = "?uid=$uid";
@@ -40,14 +46,16 @@ if (!empty($_GET['torrent_id'])) {
     /*** 输出排序类型子菜单 ***/
     $active_color = "#ff8e00";
     $active_style = "style='color: $active_color'";
-    $default = "<a href='claim.php$pagerParam' " .($seedtime_order == "" ? $active_style : ""). ">默认</a> | ";
+    $default = "<a href='claim.php$pagerParam' " .($seedtime_order == "" && !$unreached ? $active_style : ""). ">默认</a> | ";
     $seedtime_order_asc = "<a href='claim.php$pagerParam&seedtime=asc' " .($seedtime_order == "asc" ? $active_style : ""). ">按做种时长升序排列</a> | ";
-    $seedtime_order_desc = "<a href='claim.php$pagerParam&seedtime=desc' " .($seedtime_order == "desc" ? $active_style : ""). ">按做种时长降序排列</a>";
+    $seedtime_order_desc = "<a href='claim.php$pagerParam&seedtime=desc' " .($seedtime_order == "desc" ? $active_style : ""). ">按做种时长降序排列</a> | ";
+    $unreached_html = "<a href='claim.php$pagerParam&unreached=1' " .($unreached == "1" ? $active_style : ""). ">本月未达标</a>";
     $MENU = <<<HTML
         <br><b>
             {$default}
             {$seedtime_order_asc}
             {$seedtime_order_desc}
+            {$unreached_html}
         </b><br><br>
     HTML;
     echo $MENU;
@@ -61,22 +69,54 @@ if (!empty($_GET['torrent_id'])) {
 
 begin_main_frame();
 $total = (clone $query)->count();
-list($pagertop, $pagerbottom, $limit, $offset, $pageSize) = pager(50, $total, "$pagerParam&");
+$final_pager_param = "$pagerParam&".($seedtime_order ? "seedtime=$seedtime_order&" : "").($unreached ? "unreached=$unreached&" : "");
+list($pagertop, $pagerbottom, $limit, $offset, $pageSize) = pager(50, $total, $final_pager_param);
 
+$seedTimeRequiredHours = \App\Models\Claim::getConfigStandardSeedTimeHours();
+$uploadedRequiredTimes = \App\Models\Claim::getConfigStandardUploadedTimes();
 $list =[];
-if (empty($_GET['seedtime'])) {
-    $list = (clone $query)->with(['user', 'torrent', 'snatch'])->offset($offset)->limit($pageSize)->orderBy('id', 'desc')->get();
-} else {
+if (!empty($_GET['seedtime'])) {
     /*** 按本月做种时长排序 ***/
     $list = (clone $query)->with(['user', 'torrent', 'snatch'])
-        ->join('snatched', 'claims.snatched_id', '=', 'snatched.id')
+        ->select("claims.*")
+        ->leftJoin('snatched', 'claims.snatched_id', '=', 'snatched.id')
         ->offset($offset)
         ->limit($pageSize)
         ->orderByRaw('snatched.seedtime - seed_time_begin '.$seedtime_order)
         ->get();
+
+//var_dump($list);
+} elseif(!empty($_GET['unreached'])) {
+    try {
+        /*** 过滤出本月未达标的数据 ***/
+        $list = (clone $query)
+            ->with(['user', 'torrent', 'snatch'])
+            ->select("claims.*")
+            ->leftJoin('snatched', 'claims.snatched_id', '=', 'snatched.id')
+            ->leftJoin('torrents','claims.torrent_id','=','torrents.id')
+            ->whereRaw("snatched.seedtime + claims.seed_time_begin < ".($seedTimeRequiredHours*3600)." AND snatched.uploaded+ claims.uploaded_begin <".($uploadedRequiredTimes."* torrents.size"))
+            ->offset($offset)
+            ->limit($pageSize)
+            ->orderBy('claims.id', 'desc')
+            ->get();
+    } catch (Exception $e) {
+        // 捕获异常并打印错误信息到页面
+        echo 'Caught exception: ',  $e->getMessage(), "\n";
+    }
+} else {
+    $list = (clone $query)
+        ->with(['user', 'torrent', 'snatch'])
+        ->offset($offset)
+        ->limit($pageSize)
+        ->orderBy('id', 'desc')
+        ->get();
 }
 
 print("<table id='claim-table' width='100%'>");
+
+$default_type = true;
+$is_seeding_header = $default_type ? "<td class='colhead' align='center'>做种中</td>" : "";
+
 print("<tr>
     <td class='colhead' align='center'>".nexus_trans('claim.th_id')."</td>
     <td class='colhead' align='center'>".nexus_trans('claim.th_username')."</td>
@@ -88,11 +128,10 @@ print("<tr>
     <td class='colhead' align='center'>".nexus_trans('claim.th_seed_time_this_month')."</td>
     <td class='colhead' align='center'>".nexus_trans('claim.th_uploaded_this_month')."</td>
     <td class='colhead' align='center'>".nexus_trans('claim.th_reached_or_not')."</td>
+    ".$is_seeding_header."
     ".$actionTh."
 </tr>");
 $now = \Carbon\Carbon::now();
-$seedTimeRequiredHours = \App\Models\Claim::getConfigStandardSeedTimeHours();
-$uploadedRequiredTimes = \App\Models\Claim::getConfigStandardUploadedTimes();
 $claimRep = new \App\Repositories\ClaimRepository();
 foreach ($list as $row) {
     if (
@@ -107,6 +146,12 @@ foreach ($list as $row) {
     if ($actionTh) {
         $actionTd = sprintf('<td class="rowfollow nowrap" align="center">%s</td>', $claimRep->buildActionButtons($row->torrent_id, $row, 1));
     }
+
+//    echo "<pre>";
+//    var_export($row->peers); echo "<br>";
+//    echo "</pre>";
+
+    $is_seeding_cell = $default_type ? "<td class='rowfollow nowrap' align='center'>". ($row->is_seeding ? "<div style='background-color: green; color: green'>Y</div>" : "<div style='background-color: red; color: red'>N</div>") ."</td>" : "";
     print("<tr>
         <td class='rowfollow nowrap' align='center'>" . $row->id . "</td>
         <td class='rowfollow' align='left'><a href='userdetails.php?id=" . $row->uid . "'>" . $row->user->username . "</a></td>
@@ -118,6 +163,7 @@ foreach ($list as $row) {
         <td class='rowfollow nowrap' align='center'>" . mkprettytime($row->snatch->seedtime - $row->seed_time_begin) . "</td>
         <td class='rowfollow nowrap' align='center'>" . mksize($row->snatch->uploaded - $row->uploaded_begin) . "</td>
         <td class='rowfollow nowrap' align='center'>" . $reached . "</td>
+        ".$is_seeding_cell."
         ".$actionTd."
     </tr>");
 }
