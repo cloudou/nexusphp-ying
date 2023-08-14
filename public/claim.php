@@ -57,7 +57,7 @@ if (!empty($_GET['torrent_id'])) {
     $seedtime_order_asc = "<a href='claim.php$pagerParam&seedtime=asc' " .($seedtime_order == "asc" ? $active_style : ""). ">按做种时长升序排列</a> | ";
     $seedtime_order_desc = "<a href='claim.php$pagerParam&seedtime=desc' " .($seedtime_order == "desc" ? $active_style : ""). ">按做种时长降序排列</a> | ";
     $unreached_html = "<a href='claim.php$pagerParam&unreached=1' " .($unreached == "1" ? $active_style : ""). ">本月未达标</a> | ";
-    $unseeding_html = "<a href='claim.php$pagerParam&unseeding=1' " .($unseeding == "1" ? $active_style : ""). ">已认领未做种</a>";
+    $unseeding_html = "<a href='claim.php$pagerParam&unseeding=1' " .($unseeding == "1" ? $active_style : ""). ">未做种</a>";
     $MENU = <<<HTML
         <br><b>
             {$default}
