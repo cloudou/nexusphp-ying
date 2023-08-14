@@ -7,6 +7,7 @@ $actionTh = $actionTd = '';
 
 $seedtime_order = ''; // 增加按本月做种时长排序
 $unreached = ''; // 本月未达标
+$unseeding = ''; // 所有已认领未做种
 
 if (!empty($_GET['torrent_id'])) {
     $torrentId = $_GET['torrent_id'];
@@ -35,7 +36,12 @@ if (!empty($_GET['torrent_id'])) {
 
     $unreached = $_GET['unreached'];
     if ($unreached && $unreached != '1') {
-        stderr("Error", "Invalid not_reached: $unreached");
+        stderr("Error", "Invalid unreached: $unreached");
+    }
+
+    $unseeding = $_GET['unseeding'];
+    if ($unseeding && $unseeding != '1') {
+        stderr("Error", "Invalid unseeding: $unseeding");
     }
 
     stdhead(nexus_trans('claim.title_for_user'));
@@ -46,16 +52,19 @@ if (!empty($_GET['torrent_id'])) {
     /*** 输出排序类型子菜单 ***/
     $active_color = "#ff8e00";
     $active_style = "style='color: $active_color'";
-    $default = "<a href='claim.php$pagerParam' " .($seedtime_order == "" && !$unreached ? $active_style : ""). ">默认</a> | ";
+    $is_default = !$seedtime_order && !$unreached && !$unseeding;
+    $default = "<a href='claim.php$pagerParam' " .($is_default ? $active_style : ""). ">默认</a> | ";
     $seedtime_order_asc = "<a href='claim.php$pagerParam&seedtime=asc' " .($seedtime_order == "asc" ? $active_style : ""). ">按做种时长升序排列</a> | ";
     $seedtime_order_desc = "<a href='claim.php$pagerParam&seedtime=desc' " .($seedtime_order == "desc" ? $active_style : ""). ">按做种时长降序排列</a> | ";
-    $unreached_html = "<a href='claim.php$pagerParam&unreached=1' " .($unreached == "1" ? $active_style : ""). ">本月未达标</a>";
+    $unreached_html = "<a href='claim.php$pagerParam&unreached=1' " .($unreached == "1" ? $active_style : ""). ">本月未达标</a> | ";
+    $unseeding_html = "<a href='claim.php$pagerParam&unseeding=1' " .($unseeding == "1" ? $active_style : ""). ">已认领未做种</a>";
     $MENU = <<<HTML
         <br><b>
             {$default}
             {$seedtime_order_asc}
             {$seedtime_order_desc}
             {$unreached_html}
+            {$unseeding_html}
         </b><br><br>
     HTML;
     echo $MENU;
@@ -69,8 +78,13 @@ if (!empty($_GET['torrent_id'])) {
 
 begin_main_frame();
 $total = (clone $query)->count();
-$final_pager_param = "$pagerParam&".($seedtime_order ? "seedtime=$seedtime_order&" : "").($unreached ? "unreached=$unreached&" : "");
-list($pagertop, $pagerbottom, $limit, $offset, $pageSize) = pager(50, $total, $final_pager_param);
+$final_pager_param = "$pagerParam&"
+    .($seedtime_order ? "seedtime=$seedtime_order&" : "")
+    .($unreached ? "unreached=$unreached&" : "")
+    .($unseeding ? "unseeding=$unseeding&" : "");
+
+$page_size = 50;
+list($pagertop, $pagerbottom, $limit, $offset, $pageSize) = pager($page_size, $total, $final_pager_param);
 
 $seedTimeRequiredHours = \App\Models\Claim::getConfigStandardSeedTimeHours();
 $uploadedRequiredTimes = \App\Models\Claim::getConfigStandardUploadedTimes();
@@ -84,20 +98,40 @@ if (!empty($_GET['seedtime'])) {
         ->limit($pageSize)
         ->orderByRaw('snatched.seedtime - seed_time_begin '.$seedtime_order)
         ->get();
-
-//var_dump($list);
-} elseif(!empty($_GET['unreached'])) {
+} elseif (!empty($_GET['unreached'])) {
     try {
-        /*** 过滤出本月未达标的数据 ***/
+        /*** 过滤出本月所有已认领未做种数据 ***/
         $list = (clone $query)
             ->with(['user', 'torrent', 'snatch'])
             ->select("claims.*")
             ->leftJoin('snatched', 'claims.snatched_id', '=', 'snatched.id')
             ->leftJoin('torrents','claims.torrent_id','=','torrents.id')
-            ->whereRaw("snatched.seedtime + claims.seed_time_begin < ".($seedTimeRequiredHours*3600)." AND snatched.uploaded+ claims.uploaded_begin <".($uploadedRequiredTimes."* torrents.size"))
+            ->whereRaw("snatched.seedtime + claims.seed_time_begin < ".($seedTimeRequiredHours*3600)." AND snatched.uploaded+ claims.uploaded_begin <".($uploadedRequiredTimes."* torrents.size"));
+        $total = (clone $list)->count();
+        list($pagertop, $pagerbottom, $limit, $offset, $pageSize) = pager($page_size, $total, $final_pager_param);
+
+        $list = $list
             ->offset($offset)
             ->limit($pageSize)
             ->orderBy('claims.id', 'desc')
+            ->get();
+    } catch (Exception $e) {
+        // 捕获异常并打印错误信息到页面
+        echo 'Caught exception: ',  $e->getMessage(), "\n";
+    }
+} elseif (!empty($_GET['unseeding'])) {
+    try {
+        /*** 过滤出本月未达标的数据 ***/
+        $list = (clone $query)
+            ->whereRaw('not exists (select * from `peers` where `claims`.`torrent_id` = `peers`.`torrent` and `seeder` = "yes")');
+        $total = (clone $list)->count();
+        list($pagertop, $pagerbottom, $limit, $offset, $pageSize) = pager($page_size, $total, $final_pager_param);
+
+        $list = $list
+            ->with(['user', 'torrent', 'snatch'])
+            ->offset($offset)
+            ->limit($pageSize)
+            ->orderBy('id', 'desc')
             ->get();
     } catch (Exception $e) {
         // 捕获异常并打印错误信息到页面

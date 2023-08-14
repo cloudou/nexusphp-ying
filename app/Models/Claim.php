@@ -70,7 +70,7 @@ class Claim extends NexusModel
 
     public function peers()
     {
-        return $this->hasMany(Peer::class, 'torrent');
+        return $this->hasMany(Peer::class, 'torrent', 'torrent_id');
     }
 
     public static function getConfigIsEnabled(): bool
