@@ -76,6 +76,60 @@ function build_claim_table(array $claimResult = [], array $options = [])
     ];
 }
 
+function calculate_admin_claim($seedTimeRequiredHours, $uploadedRequiredTimes): array
+{
+    $query = \App\Models\Claim::query();
+    $claim_uid_total_list = (clone $query)
+        ->get()
+        ->pluck('uid')
+        ->toArray();
+    $unique_uids = array_unique($claim_uid_total_list);;
+    $AdminResult = [];
+    foreach ($unique_uids as $uid) {
+        $query = \App\Models\Claim::query()->where('uid', $uid);
+        $row_result = [];
+        $row_result['user_id'] = $uid;
+        $user = \App\Models\User::query()->where('id', $uid)->first(\App\Models\User::$commonFields);
+        $row_result['username'] = $user->username;
+        $claimResult = calculate_claim($query, $seedTimeRequiredHours, $uploadedRequiredTimes);
+        $row_result['claim_count'] = $claimResult['claim_count'];
+        $row_result['claim_size'] = $claimResult['claim_size'];
+        $row_result['claim_reached_count'] = $claimResult['claim_reached_count'];
+        $row_result['claim_reached_size'] =  $claimResult['claim_reached_size'];
+        array_push($AdminResult, $row_result);
+    }
+    return $AdminResult;
+}
+
+function build_claim_admin_table(array $claimAdminResult = [], array $options = [])
+{
+    $table = sprintf('<table cellpadding="5" style="%s">', $options['table_style'] ?? '');
+    $table .= '<tr>';
+    $table .= sprintf('<td class="colhead">%s</td>', '保种人');
+    $table .= sprintf('<td class="colhead">%s</td>', '保种总数量');
+    $table .= sprintf('<td class="colhead">%s</td>', '达标数量');
+    $table .= sprintf('<td class="colhead">%s</td>', '保种总体积');
+    $table .= sprintf('<td class="colhead">%s</td>', '达标体积');
+    $table .= sprintf('<td class="colhead">%s</td>', '是否达标');
+    $table .= '</tr>';
+    foreach ($claimAdminResult as $row) {
+        $table .= sprintf(
+            '<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>',
+            $row['username'],
+            $row['claim_count'],
+            $row['claim_reached_count'],
+            mksize($row['claim_size']),
+            mksize($row['claim_reached_size']),
+            '-',
+        );
+    }
+    $table .= '</table>';
+
+    return [
+        'table' => $table
+    ];
+}
+
 if (!empty($_GET['torrent_id'])) {
     $torrentId = $_GET['torrent_id'];
     int_check($torrentId,true);
@@ -120,6 +174,14 @@ if (!empty($_GET['torrent_id'])) {
     $claimResult = calculate_claim($query, $seedTimeRequiredHours, $uploadedRequiredTimes);
     $claimTableResult = build_claim_table($claimResult, ['table_style' => 'width: 50%']);
     print '<div style="display: flex;justify-content: center;margin-top: 20px;">'.$claimTableResult['table'].'</div>';
+
+    /*** 保种管理员查看保种组统计数据 ***/
+    if(get_user_class() >= UC_ADMINISTRATOR) {
+        print "<h3>保种组数据</h3>";
+        $claimAdminResult = calculate_admin_claim($seedTimeRequiredHours, $uploadedRequiredTimes);
+        $claimAdminTableResult = build_claim_admin_table($claimAdminResult, ['table_style' => 'width: 50%']);
+        print '<div style="display: flex;justify-content: center;margin-bottom: 30px;">'.$claimAdminTableResult['table'].'</div>';
+    }
 
     /*** 输出排序类型子菜单 ***/
     $active_color = "#ff8e00";
