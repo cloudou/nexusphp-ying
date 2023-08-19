@@ -5,9 +5,76 @@ loggedinorreturn();
 $torrentId = $uid = 0;
 $actionTh = $actionTd = '';
 
+$seedTimeRequiredHours = \App\Models\Claim::getConfigStandardSeedTimeHours();
+$uploadedRequiredTimes = \App\Models\Claim::getConfigStandardUploadedTimes();
+
 $seedtime_order = ''; // 增加按本月做种时长排序
 $unreached = ''; // 本月未达标
 $unseeding = ''; // 所有已认领未做种
+
+/**
+ * @param $query
+ * @param $seedTimeRequiredHours
+ * @param $uploadedRequiredTimes
+ * @return array
+ */
+function calculate_claim($query, $seedTimeRequiredHours, $uploadedRequiredTimes): array
+{
+    $claimResult = [];
+    $claimResult['claim_count'] = (clone $query)->count();
+    $claim_total_size = $reached_total_size = 0;
+    $claim_total_list = (clone $query)
+        ->with(['user', 'torrent', 'snatch'])
+        ->get();
+    foreach ($claim_total_list as $row) {
+        $claim_total_size = bcadd($claim_total_size, $row->torrent->size);
+    }
+    $claimResult['claim_size'] = $claim_total_size;
+    $reached_list = (clone $query)
+        ->with(['user', 'torrent', 'snatch'])
+        ->select("claims.*")
+        ->leftJoin('snatched', 'claims.snatched_id', '=', 'snatched.id')
+        ->leftJoin('torrents','claims.torrent_id','=','torrents.id')
+        ->whereRaw("snatched.seedtime + claims.seed_time_begin >= ".($seedTimeRequiredHours*3600)." OR snatched.uploaded+ claims.uploaded_begin >=".($uploadedRequiredTimes."* torrents.size"));
+    $reached_total = (clone $reached_list)->count();
+    $reached_total_list = (clone $reached_list)->get();
+    foreach ($reached_total_list as $row) {
+        $reached_total_size = bcadd($reached_total_size, $row->torrent->size);
+    }
+    $claimResult['claim_reached_count'] = $reached_total;
+    $claimResult['claim_reached_size'] = $reached_total_size;
+    return $claimResult;
+}
+
+/**
+ * @param array $claimResult
+ * @param array $options
+ * @return string[]
+ */
+function build_claim_table(array $claimResult = [], array $options = [])
+{
+    $table = sprintf('<table cellpadding="5" style="%s">', $options['table_style'] ?? '');
+    $table .= '<tr>';
+    $table .= sprintf('<td class="colhead">%s</td>', '认领数量');
+    $table .= sprintf('<td class="colhead">%s</td>', '认领体积');
+    $table .= sprintf('<td class="colhead">%s</td>', '达标数量');
+    $table .= sprintf('<td class="colhead">%s</td>', '达标体积');
+    $table .= '</tr>';
+
+    $table .= sprintf(
+        '<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>',
+        $claimResult['claim_count'],
+        mksize($claimResult['claim_size']),
+        $claimResult['claim_reached_count'],
+        mksize($claimResult['claim_reached_size']),
+    );
+
+    $table .= '</table>';
+
+    return [
+        'table' => $table
+    ];
+}
 
 if (!empty($_GET['torrent_id'])) {
     $torrentId = $_GET['torrent_id'];
@@ -49,6 +116,11 @@ if (!empty($_GET['torrent_id'])) {
     $pagerParam = "?uid=$uid";
     print("<h1 align=center>".nexus_trans('claim.title_for_user') . "<a href=userdetails.php?id=" . htmlspecialchars($uid) . "><b>&nbsp;".htmlspecialchars($user->username)."</b></a></h1>");
 
+    /*** 我的认领统计数据 ***/
+    $claimResult = calculate_claim($query, $seedTimeRequiredHours, $uploadedRequiredTimes);
+    $claimTableResult = build_claim_table($claimResult, ['table_style' => 'width: 50%']);
+    print '<div style="display: flex;justify-content: center;margin-top: 20px;">'.$claimTableResult['table'].'</div>';
+
     /*** 输出排序类型子菜单 ***/
     $active_color = "#ff8e00";
     $active_style = "style='color: $active_color'";
@@ -86,8 +158,6 @@ $final_pager_param = "$pagerParam&"
 $page_size = 50;
 list($pagertop, $pagerbottom, $limit, $offset, $pageSize) = pager($page_size, $total, $final_pager_param);
 
-$seedTimeRequiredHours = \App\Models\Claim::getConfigStandardSeedTimeHours();
-$uploadedRequiredTimes = \App\Models\Claim::getConfigStandardUploadedTimes();
 $list =[];
 if (!empty($_GET['seedtime'])) {
     /*** 按本月做种时长排序 ***/
@@ -100,7 +170,7 @@ if (!empty($_GET['seedtime'])) {
         ->get();
 } elseif (!empty($_GET['unreached'])) {
     try {
-        /*** 过滤出本月所有已认领未做种数据 ***/
+        /*** 过滤出本月未达标的数据 ***/
         $list = (clone $query)
             ->with(['user', 'torrent', 'snatch'])
             ->select("claims.*")
@@ -121,7 +191,7 @@ if (!empty($_GET['seedtime'])) {
     }
 } elseif (!empty($_GET['unseeding'])) {
     try {
-        /*** 过滤出本月未达标的数据 ***/
+        /*** 过滤出本月所有已认领未做种数据 ***/
         $list = (clone $query)
             ->whereRaw('not exists (select * from `peers` where `claims`.`torrent_id` = `peers`.`torrent` and `seeder` = "yes")');
         $total = (clone $list)->count();
