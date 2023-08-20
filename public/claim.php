@@ -76,6 +76,13 @@ function build_claim_table(array $claimResult = [], array $options = [])
     ];
 }
 
+/**
+ * Calculate the admin claim based on the seed time required hours and uploaded required times.
+ *
+ * @param int $seedTimeRequiredHours The number of hours required for the seed time.
+ * @param array $uploadedRequiredTimes An array of required times for uploaded claims.
+ * @return array The admin claim result.
+ */
 function calculate_admin_claim($seedTimeRequiredHours, $uploadedRequiredTimes): array
 {
     $query = \App\Models\Claim::query();
@@ -101,6 +108,13 @@ function calculate_admin_claim($seedTimeRequiredHours, $uploadedRequiredTimes): 
     return $AdminResult;
 }
 
+/**
+ * Builds a claim admin table based on the given claim admin result and options.
+ *
+ * @param array $claimAdminResult An array containing the claim admin result.
+ * @param array $options An array of options to customize the table.
+ * @return array An array containing the generated table.
+ */
 function build_claim_admin_table(array $claimAdminResult = [], array $options = [])
 {
     $table = sprintf('<table cellpadding="5" style="%s">', $options['table_style'] ?? '');
