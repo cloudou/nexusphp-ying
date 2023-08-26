@@ -6207,6 +6207,50 @@ function calculate_harem_addition($uid)
     return $addition;
 }
 
+function renderTagSpanTd(array $renderIdArr = [], $checkboxValue = '1', $checkedValues = '', $withFilterLink = false): string
+{
+    parse_str($checkedValues, $checkedValuesArr);
+    $tagRep = new \App\Repositories\TagRepository();
+    $allTags = $tagRep->listAll();
+    $html = '';
+    $namePrefix = "tags_id";
+    foreach ($allTags as $value) {
+        if (in_array($value->id, $renderIdArr) || (isset($renderIdArr[0]) && $renderIdArr[0] == '*')) {
+            $tagId = $value->id;
+            if ($value) {
+                $checked = '';
+                if ($checkedValues) {
+                    if (
+                        str_contains($checkedValues, "[tags_id{$tagId}]")
+                        || (isset($checkedValuesArr["{$namePrefix}{$tagId}"]) && $checkedValuesArr["{$namePrefix}{$tagId}"] == 1)
+                        || (isset($checkedValuesArr[$namePrefix]) && $checkedValuesArr[$namePrefix] == $tagId)
+                    ) {
+                        $checked = ' checked';
+                    }
+                }
+
+                $item = sprintf(
+                    "<input type=\"checkbox\" id=\"tags_id%s\" name=\"tags_id%s\" value=\"%s\" %s/><span style=\"background-color:%s;color:%s;border-radius:%s;font-size:%s;margin:%s;padding:%s\" title=\"%s\">%s</span>",
+                    $tagId, $tagId, $checkboxValue, $checked, $value->color, $value->font_color, $value->border_radius, $value->font_size, $value->margin, $value->padding, $value->description, $value->name
+                );
+                if ($withFilterLink) {
+                    $html .= sprintf('<td class="embedded" style="padding-bottom: 4px; padding-left: 7px"><a href="?tag_id=%s">%s</a></td>', $tagId, $item);
+                } else {
+                    $html .= sprintf('<td class="embedded" style="padding-bottom: 4px; padding-left: 7px">%s</td>', $item);
+                }
+            }
+        }
+    }
+    $checkPrefix = $namePrefix;
+    $tdContent = sprintf('<td class="embedded" style="padding-bottom: 4px; padding-left: 7px">'.
+        "<input name=\"%s_check\" value=\"%s\" class=\"btn medium\" type=\"button\" onclick=\"javascript:SetChecked('%s','%s_check','%s','%s',-1,10)\">". "</td>",
+        $checkPrefix, nexus_trans('nexus.select_all'), $checkPrefix, $checkPrefix, nexus_trans('nexus.select_all'), nexus_trans('nexus.unselect_all')
+    );
+
+    $html .= $tdContent;
+    return $html;
+}
+
 
 function build_search_box_category_table($mode, $checkboxValue, $categoryHrefPrefix, $taxonomyHrefPrefix, $taxonomyNameLength, $checkedValues = '', array $options = [])
 {
@@ -6360,6 +6404,16 @@ TD;
         $html .= '</tr>';
     }
     $html .= '</table>';
+
+    $tagRep = new \App\Repositories\TagRepository();
+    $allTags = $tagRep->listAll();
+    if ($allTags->isNotEmpty()) {
+        $html .= sprintf('<tr><td class="embedded" align="left">%s</td></tr>', '标签');
+        $html .= '<tr>';
+        $html .= renderTagSpanTd(['*'], $checkboxValue, $checkedValues, true);
+        $html .= '</tr>';
+    }
+
     return $html;
 }
 

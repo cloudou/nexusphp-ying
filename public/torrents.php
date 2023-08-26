@@ -907,11 +907,42 @@ if ($whereaudiocodecin)
 $where .= ($where ? " AND " : "") . "audiocodec IN(" . $whereaudiocodecin . ")";
 }
 
+/*** 过滤标签组 ***/
+$wheretagsin = '';
+try {
+    $the_tags = \App\Models\Tag::query() -> get()->toArray();
+    $wheretasina = array();
+    foreach ($the_tags as $the_tag)
+    {
+        $__is = (isset($_GET["tags_id{$the_tag['id']}"]) && $_GET["tags_id{$the_tag['id']}"]);
+        if ($__is)
+        {
+            $wheretasina[] = $the_tag['id'];
+        }
+    }
+    if (count($wheretasina) >= 1)
+        $wheretagsin = implode(",",$wheretasina);
+} catch (Exception $e) {
+    echo '<script>';
+    echo 'console.log(' . json_encode([
+            'error-message' => $e->getMessage(),
+            'error-code' => $e->getCode(),
+            'error-file' => $e->getFile(),
+            'error-line' => $e->getLine(),
+        ]) . ')';
+    echo '</script>';
+}
+
+/*** 过滤标签组 ***/
+
 $tagFilter = "";
 $tagId = intval($_REQUEST['tag_id'] ?? 0);
 if ($tagId > 0) {
     $tagFilter = " inner join torrent_tags on torrents.id = torrent_tags.torrent_id and torrent_tags.tag_id = $tagId ";
     $addparam .= "tag_id={$tagId}&";
+} elseif ($wheretagsin) {
+    /*** 过滤标签组 ***/
+    $tagFilter = " inner join torrent_tags on torrents.id = torrent_tags.torrent_id and torrent_tags.tag_id IN(" . $wheretagsin . ") ";
 }
 if ($allsec == 1 || $enablespecial != 'yes')
 {
